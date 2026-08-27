@@ -3,8 +3,9 @@
 A learning-first project for building a local football assistant with a curated
 MCP server, a local tool-calling model, LangGraph, and Streamlit.
 
-The project is currently at **Milestone 1: understand API-Football directly**.
-There is deliberately no MCP, LLM, LangGraph, or UI code yet.
+The project is currently at **Milestone 2: build a typed Python API client**.
+The Milestone 1 probe remains as an executable learning artifact. There is
+deliberately no cache, MCP, LLM, LangGraph, or UI code yet.
 
 ## Milestone 1 setup
 
@@ -37,6 +38,36 @@ The probe prints the endpoint, safe parameters, response envelope, and quota
 headers. It never prints the API key. Each successful command consumes one API
 request unless the upstream service handles it otherwise.
 
+## Milestone 2 typed client
+
+The production-facing boundary is an asynchronous `ApiFootballClient` with:
+
+- secret-safe configuration loaded from `.env` or an injected mapping;
+- strict typed arguments for the currently supported league query;
+- selectively modeled Pydantic responses for countries and leagues;
+- quota and UTC retrieval metadata on successful responses;
+- safe configuration, transport, HTTP, API-level, and schema failures; and
+- injectable HTTP transport and clock dependencies for deterministic tests.
+
+Only `get_countries()` and `get_leagues(LeaguesQuery(...))` are supported. New
+resources will be added only when an agreed workflow requires them.
+
+```python
+from football_copilot.api_football import (
+    ApiFootballClient,
+    LeaguesQuery,
+    load_api_football_config,
+)
+
+
+async def load_english_leagues():
+    config = load_api_football_config()
+    async with ApiFootballClient(config) as client:
+        return await client.get_leagues(
+            LeaguesQuery(country="England", season=2024)
+        )
+```
+
 ## Development checks
 
 These checks are offline and do not consume API quota:
@@ -48,11 +79,10 @@ uv run ruff check .
 
 ## Milestone boundary
 
-Milestone 1 is complete when we can explain:
+Milestone 2 is complete when we can explain and verify:
 
-- How the API key is transmitted.
-- How query parameters are serialized.
-- What `errors`, `results`, `paging`, and `response` mean.
-- Which headers report daily and per-minute quota.
-- How an HTTP error differs from an API-level error in an HTTP 200 response.
-
+- Why configuration, transport, validation, and domain models are separate.
+- Why the client is async and owns one scoped `httpx.AsyncClient`.
+- Why request models reject extras while response models ignore unused extras.
+- How HTTP, API-level, and schema failures cross the boundary safely.
+- How mocked transports test requests without consuming live quota.
